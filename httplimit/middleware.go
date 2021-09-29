@@ -106,16 +106,18 @@ func (m *Middleware) Handle(next http.Handler) http.Handler {
 			return
 		}
 
-		resetTime := time.Unix(0, int64(reset)).UTC().Format(time.RFC1123)
+		resetTime := time.Unix(0, int64(reset)).UTC()
+
+		resetInSeconds := int64(resetTime.Sub(time.Now()).Truncate(time.Second).Seconds()) + 1
 
 		// Set headers (we do this regardless of whether the request is permitted).
 		w.Header().Set(HeaderRateLimitLimit, strconv.FormatUint(limit, 10))
 		w.Header().Set(HeaderRateLimitRemaining, strconv.FormatUint(remaining, 10))
-		w.Header().Set(HeaderRateLimitReset, resetTime)
+		w.Header().Set(HeaderRateLimitReset, resetTime.Format(time.RFC1123))
 
 		// Fail if there were no tokens remaining.
 		if !ok {
-			w.Header().Set(HeaderRetryAfter, resetTime)
+			w.Header().Set(HeaderRetryAfter, strconv.FormatInt(resetInSeconds, 10))
 			http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
 			return
 		}
